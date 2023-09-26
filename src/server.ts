@@ -4,16 +4,9 @@ import { createServer, Server } from "http";
 import logger from "morgan";
 import { CONFIG } from "./config/config";
 import { Server as Srv, Socket } from "socket.io";
-import {
-  _createRoom,
-  _deleteRoomFromMemory,
-  _searchForRoom,
-  _updateRoom,
-} from "./utils/redis/query";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { MessageDatagram } from "./types/Message";
 import { DisconnectDatagram } from "./types/Disconnect";
-import { StoreCacheSingleton } from "./utils/singletons/storeSingleton";
 import { messageController } from "./socketControllers/messageController";
 import { leaveController } from "./socketControllers/leaveController";
 import { CreateRoomDatagram } from "./types/createRoom";
@@ -21,17 +14,22 @@ import { createRoomController } from "./socketControllers/createRoomController";
 import { AwsStorage } from "./services/storage";
 import { ImageScaler, SharpImageScaler } from "./services/sharpImageScaler";
 import { MessageProcessor } from "./services/messageProcessor";
+import { DataStore, Store } from "./services/datasore";
+import { Room } from "./classes/roomClass";
+import { User } from "./classes/user";
+
+const awsCred = CONFIG.ENV == "prod" ? CONFIG.PROD_AWS : CONFIG.DEV_AWS;
 
 const app: Express = express();
-const store = StoreCacheSingleton.getStore();
+const store: Store<Room<string, User>> = new DataStore();
 const scaler: ImageScaler = new SharpImageScaler();
 const processor: MessageProcessor = new MessageProcessor();
 const awsStore: AwsStorage = new AwsStorage(
-  CONFIG.AWS.ACCESS_KEY || "",
-  CONFIG.AWS.SECRET_KEY || "",
-  CONFIG.AWS.REGION || "",
-  CONFIG.AWS.S3.BUCKET_NAME || "",
-  CONFIG.AWS.S3.EXPIRATION
+  awsCred.ACCESS_KEY || "",
+  awsCred.SECRET_KEY || "",
+  awsCred.REGION || "",
+  awsCred.S3.BUCKET_NAME || "",
+  awsCred.S3.EXPIRATION
 );
 
 const whitelist: CorsOptions = {
@@ -51,7 +49,6 @@ const io = new Srv(server, {
   transports: ["websocket", "polling"],
 });
 
-// MAIN WORK
 io.on(
   "connection",
   (socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap>) => {

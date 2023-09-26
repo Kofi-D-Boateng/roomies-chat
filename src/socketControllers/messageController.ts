@@ -9,16 +9,17 @@ import { AvailableFormatInfo } from "sharp";
 import { photosResize } from "../config/config";
 import { SharpImageScaler } from "../services/sharpImageScaler";
 import { MessageProcessor } from "../services/messageProcessor";
+import { Store } from "../services/datasore";
 
 export const messageController: (
   data: MessageDatagram,
   io: Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>,
-  store: Map<string, Room<string, User>>,
+  store: Store<Room<string, User>>,
   socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>,
   scaler: SharpImageScaler,
   processor: MessageProcessor
 ) => void = async (data, io, store, socket, scaler, processor) => {
-  const Room = store.get(data.roomId);
+  const Room = await store.search(data.roomId);
   if (!Room) {
     socket.emit("room-status", { msg: "error" });
     return;
@@ -54,7 +55,7 @@ export const messageController: (
       })
     )
   );
-  store.set(data.roomId, Room);
+  store.update(data.roomId, Room);
   io.to(Room.getKey()).emit("chat", processedMessage);
 };
 
