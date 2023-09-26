@@ -1,12 +1,14 @@
 import { MongoClient } from "mongodb";
 import { CONFIG } from "../../config/config";
 
+const mongo = CONFIG.ENV == "prod" ? CONFIG.PROD_MONGO : CONFIG.DEV_MONGO;
+
 export class DatabaseSingleton {
   private static instance: DatabaseSingleton;
   private static readonly client: MongoClient = new MongoClient(
-    CONFIG.MONGO.CONN_STR as string
+    mongo.CONN_STR as string
   );
-
+  public static readonly mongoObject = mongo;
   constructor() {
     if (!DatabaseSingleton.instance) {
       DatabaseSingleton.instance = this;

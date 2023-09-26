@@ -3,13 +3,14 @@ import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Room } from "../classes/roomClass";
 import { User } from "../classes/user";
 import { DisconnectDatagram } from "../types/Disconnect";
+import { Store } from "../services/datasore";
 
 export const leaveController: (
   data: DisconnectDatagram,
-  store: Map<string, Room<string, User>>,
+  store: Store<Room<string, User>>,
   socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>
-) => void = (data, store, socket) => {
-  const Room = store.get(data.roomId);
+) => void = async (data, store, socket) => {
+  const Room = await store.search(data.roomId);
   if (!Room) {
     socket.emit("room-status", { msg: "error" });
     return;
@@ -22,7 +23,7 @@ export const leaveController: (
   Room.getStore().delete(socket.id);
 
   if (Room.getStore().size <= 0) {
-    store.delete(data.roomId);
+    store.remove(data.roomId);
     return;
   }
 
@@ -30,6 +31,6 @@ export const leaveController: (
     leaver: socket.id,
   });
 
-  store.set(data.roomId, Room);
+  store.update(data.roomId, Room);
   socket.disconnect(true);
 };
