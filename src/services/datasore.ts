@@ -15,6 +15,9 @@ export class DataStore<V> implements Store<V> {
   private static readonly store: redis.RedisClientType = redis.createClient({
     url: `redis://${redisVars.REDIS_HOST}:${redisVars.REDIS_PORT}`,
   });
+  private static readonly duration: number = redisVars.DURATION
+    ? +redisVars.DURATION
+    : 30;
   constructor() {
     if (!DataStore.store.isReady) DataStore.store.connect();
   }
@@ -31,14 +34,14 @@ export class DataStore<V> implements Store<V> {
   }
   insert(key: string, value: V): void {
     try {
-      DataStore.store.set(key, stringify(value));
+      DataStore.store.setEx(key, 60 * DataStore.duration, stringify(value));
     } catch (error) {
       console.log(error);
     }
   }
   update(key: string, value: V): void {
     try {
-      DataStore.store.set(key, stringify(value));
+      DataStore.store.setEx(key, 60 * DataStore.duration, stringify(value));
     } catch (error) {
       console.log(error);
     }

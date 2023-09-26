@@ -12,10 +12,12 @@ export const CONFIG = {
   PROD_REDIS: {
     REDIS_HOST: process.env.PROD_REDIS_CACHE_IP,
     REDIS_PORT: process.env.PROD_REDIS_CACHE_PORT,
+    DURATION: process.env.DURATION,
   },
   DEV_REDIS: {
     REDIS_HOST: process.env.DEV_REDIS_CACHE_IP,
     REDIS_PORT: process.env.DEV_REDIS_CACHE_PORT,
+    DURATION: process.env.DURATION,
   },
   PROD_MONGO: {
     CONN_STR: process.env.PROD_MONGO_CONNECTION_STRING,
