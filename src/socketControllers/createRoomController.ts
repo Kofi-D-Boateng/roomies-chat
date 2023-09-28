@@ -8,6 +8,8 @@ import { DatabaseSingleton } from "../utils/singletons/databaseSingleton";
 import { RoomMessage } from "../types/Message";
 import { AwsStorage } from "../services/storage";
 import { Store } from "../services/datasore";
+import crypto from "crypto";
+import { ObjectId } from "mongodb";
 
 export const createRoomController: (
   data: CreateRoomDatagram,
@@ -18,50 +20,67 @@ export const createRoomController: (
 ) => void = async (data, io, store, socket, awsStore) => {
   const rooms: Room<string, User>[] = [];
 
-  for (const roomId of data.roomIds) {
-    let room = await store.search(roomId);
+  for (const requestReference of data.requestReferences) {
+    let room = await store.search(requestReference);
+    const queriedRoom: { roomId: ObjectId; messages: RoomMessage[] } | null =
+      await queryDB(requestReference);
     if (!room) {
-      console.warn("Room was not found for id:", roomId);
+      console.warn("Room was not found for reference:", requestReference);
       console.log("Creating room...");
-      room = new Room<string, User>(roomId, "", 2, new Map(), new LinkedList());
+
+      room = new Room<string, User>(
+        queriedRoom?.roomId.toString() as string,
+        "",
+        2,
+        new Map(),
+        new LinkedList()
+      );
     }
 
     if (room.getMessages().size() == 0) {
-      const storedMessages: RoomMessage[] = await queryDBMessages(roomId);
-      storedMessages.forEach((message) => {
+      queriedRoom?.messages.forEach((message) => {
         message.photoKeys.forEach(
           (key) => (key = awsStore.generateSignedUrl(key))
         );
       });
-      for (const message of storedMessages) room.insertMessage(message);
+      for (const message of queriedRoom?.messages as RoomMessage[])
+        room.insertMessage(message);
     }
 
     if (!room.getStore().has(data.userId)) {
       room.getStore().set(data.userId, new User(data.userId, data.username));
     }
 
-    store.update(roomId, room);
-    socket.join(roomId);
+    store.update(queriedRoom?.roomId.toString() as string, room);
+    socket.join(queriedRoom?.roomId.toString() as string);
     rooms.push(room);
   }
   socket.emit("rooms", rooms);
 };
 
-const queryDBMessages: (id: string) => Promise<RoomMessage[]> = async (id) => {
+const queryDB: (
+  id: string
+) => Promise<{ roomId: ObjectId; messages: RoomMessage[] } | null> = async (
+  id
+) => {
   try {
     const mongoClient = await DatabaseSingleton.getClient();
     const db = mongoClient.db(DatabaseSingleton.mongoObject.DB);
     const collection = db.collection(
       DatabaseSingleton.mongoObject.COLLECTION_NAME as string
     );
-    const foundItems = await collection.findOne({ id: id });
+    const query = { request_reference: id };
+    const foundItems = await collection.findOne(query);
     if (!foundItems) {
       throw new Error(`No items found for for id: ${id}`);
     }
-    const messages: RoomMessage[] = foundItems.messages;
-    return messages;
+
+    return {
+      roomId: foundItems._id,
+      messages: foundItems.messages,
+    };
   } catch (error) {
     console.log(error);
-    return [];
+    return null;
   }
 };
