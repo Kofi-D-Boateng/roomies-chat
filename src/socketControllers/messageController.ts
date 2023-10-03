@@ -6,10 +6,11 @@ import { User } from "../classes/user";
 import { RoomMessage, MessageDatagram } from "../types/Message";
 import Kafka from "node-rdkafka";
 import { AvailableFormatInfo } from "sharp";
-import { photosResize } from "../config/config";
+import { CONFIG, photosResize } from "../config/config";
 import { SharpImageScaler } from "../services/sharpImageScaler";
 import { MessageProcessor } from "../services/messageProcessor";
 import { Store } from "../services/datasore";
+import { Topic } from "../enums/topic";
 
 export const messageController: (
   data: MessageDatagram,
@@ -19,6 +20,7 @@ export const messageController: (
   scaler: SharpImageScaler,
   processor: MessageProcessor
 ) => void = async (data, io, store, socket, scaler, processor) => {
+  const photoType = "jpeg";
   const Room = await store.search(data.roomId);
   if (!Room) {
     socket.emit("room-status", { msg: "error" });
@@ -28,9 +30,9 @@ export const messageController: (
   if (!Room.getStore().has(data.roomId)) return;
 
   const stream = Kafka.Producer.createWriteStream(
-    { "metadata.broker.list": "" },
+    { "metadata.broker.list": `${CONFIG.KAFKA_HOST || "localhost"}:9092` },
     {},
-    { topic: "message-to-db" }
+    { topic: Topic.SAVE_MESSAGE }
   );
 
   const processedMessage: RoomMessage = {
@@ -41,9 +43,10 @@ export const messageController: (
       data.user.photos,
       photosResize.width,
       photosResize.height,
-      "jpeg" as unknown as AvailableFormatInfo
+      photoType as unknown as AvailableFormatInfo
     ),
     createdAt: Date.now(),
+    mimeType: `image/${photoType}`,
     photoKeys: [],
   };
   Room.insertMessage(processedMessage);
@@ -58,5 +61,3 @@ export const messageController: (
   store.update(data.roomId, Room);
   io.to(Room.getKey()).emit("chat", processedMessage);
 };
-
-// CREATE A SERVICE THAT WILL WORK ON WRITING TO THE DB AND AWS VIA DATA PROCESSING
