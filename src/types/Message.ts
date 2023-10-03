@@ -13,6 +13,7 @@ type Message = {
   sender: string;
   text: string;
   photos: Buffer[];
+  mimeType: string;
   createdAt: number;
 };
 

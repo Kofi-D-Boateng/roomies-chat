@@ -8,6 +8,7 @@ export const CONFIG = {
   EXPIRESIN: process.env.EXPIRES_IN || "60000",
   ORIGINS: process.env.CORS_ORIGINS || "*",
   LOGGER_TYPE: process.env.LOGGER || "dev",
+  KAFKA_HOST: process.env.KAFKA_HOST,
   MAX_ROOM_CAPACITY: process.env.MAX_CAPACITY || 100,
   PROD_REDIS: {
     REDIS_HOST: process.env.PROD_REDIS_CACHE_IP,
