@@ -1,4 +1,5 @@
 export type MessageDatagram = {
+  apiKey: string;
   roomId: string;
   user: {
     id: string;
