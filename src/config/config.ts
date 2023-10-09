@@ -80,3 +80,12 @@ export const photosResize = {
   height: 200,
   format: "jpeg",
 };
+
+export const textProperties = {
+  maxLength: process.env.MESSAGE_MAX_LENGTH
+    ? parseInt(process.env.MESSAGE_MAX_LENGTH)
+    : 400,
+  minLength: process.env.MESSAGE_MAX_LENGTH
+    ? parseInt(process.env.MESSAGE_MAX_LENGTH)
+    : 0,
+};
