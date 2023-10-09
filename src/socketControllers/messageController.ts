@@ -11,6 +11,7 @@ import { SharpImageScaler } from "../services/sharpImageScaler";
 import { MessageProcessor } from "../services/messageProcessor";
 import { Store } from "../services/datasore";
 import { Topic } from "../enums/topic";
+import { ApiKeyValidator } from "../services/apiKeyValidator";
 
 export const messageController: (
   data: MessageDatagram,
@@ -20,6 +21,13 @@ export const messageController: (
   scaler: SharpImageScaler,
   processor: MessageProcessor
 ) => void = async (data, io, store, socket, scaler, processor) => {
+  const result = await ApiKeyValidator.validate(data.apiKey);
+
+  if (!result) {
+    socket.emit("unauthorized", true);
+    return;
+  }
+
   const photoType = "jpeg";
   const Room = await store.search(data.roomId);
   if (!Room) {
@@ -35,29 +43,39 @@ export const messageController: (
     { topic: Topic.SAVE_MESSAGE }
   );
 
-  const processedMessage: RoomMessage = {
-    senderId: data.user.id,
-    sender: data.user.username,
-    text: processor.proccessMessage(data.user.message),
-    photos: await scaler.scale(
-      data.user.photos,
-      photosResize.width,
-      photosResize.height,
-      photoType as unknown as AvailableFormatInfo
-    ),
-    createdAt: Date.now(),
-    mimeType: `image/${photoType}`,
-    photoKeys: [],
-  };
-  Room.insertMessage(processedMessage);
-  stream.write(
-    Buffer.from(
-      JSON.stringify({
-        roomId: data.roomId,
-        message: processedMessage,
-      })
-    )
+  const validatedText = processor.proccessMessage(data.user.message);
+  const validPhotoArray = await scaler.scale(
+    data.user.photos,
+    photosResize.width,
+    photosResize.height,
+    photoType as unknown as AvailableFormatInfo
   );
-  store.update(data.roomId, Room);
-  io.to(Room.getKey()).emit("chat", processedMessage);
+
+  if (validatedText.trim().length !== 0 || validPhotoArray.length !== 0) {
+    const processedMessage: RoomMessage = {
+      senderId: data.user.id,
+      sender: data.user.username,
+      text: processor.proccessMessage(data.user.message),
+      photos: await scaler.scale(
+        data.user.photos,
+        photosResize.width,
+        photosResize.height,
+        photoType as unknown as AvailableFormatInfo
+      ),
+      createdAt: Date.now(),
+      mimeType: `image/${photoType}`,
+      photoKeys: [],
+    };
+    Room.insertMessage(processedMessage);
+    stream.write(
+      Buffer.from(
+        JSON.stringify({
+          roomId: data.roomId,
+          message: processedMessage,
+        })
+      )
+    );
+    store.update(data.roomId, Room);
+    io.to(Room.getKey()).emit("chat", processedMessage);
+  }
 };
